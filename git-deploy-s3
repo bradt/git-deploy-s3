@@ -1,0 +1,104 @@
+#!/usr/bin/php -d disable_functions= 
+<?php
+require 'config.php';
+
+if ( $argc < 3 ) { 
+	echo "Usage: ", $argv[0], " <oldrev> <newrev>\n"; 
+	exit;
+}
+
+$cmd = "git diff --name-status $argv[1] $argv[2]";
+$diff = shell_exec( $cmd );
+
+if ( !$diff ) exit;
+
+$lines = explode( "\n", trim( $diff ) );
+
+$deletes = $uploads = array();
+foreach ( $lines as $line ) {
+	list( $flag, $file ) = explode( "\t", $line );
+	foreach ( $paths as $path => $remote_path ) {
+		$regex = '^' . preg_quote( $path, '@' );
+		$is_dir = is_dir( $path );
+		if ( !$is_dir ) {
+			$regex .= '$'; 
+		}
+		
+		if ( !preg_match( '@' . $regex . '@', $file ) ) continue; 
+
+		if ( $is_dir ) {
+			$_path = preg_replace( '@^' . $path . '@', '', $file );
+			$remote_path = $remote_path . '/' . ltrim( $_path, '/' );
+		}
+
+		if ( 'D' == $flag ) {
+			$deletes[$file] = $remote_path;
+		}
+		else {
+			$uploads[$file] = $remote_path;
+		}
+	} 
+}
+
+//print_r( $deletes ); print_r( $uploads ); exit;
+
+if ( empty( $deletes ) && empty( $uploads ) ) exit;
+
+require_once 'aws-sdk/sdk.class.php';
+
+$s3 = new AmazonS3(array(
+	'key' => $aws_key,
+	'secret' => $aws_secret
+));
+
+@$s3->disable_ssl_verification();
+
+function split_s3_path( $path ) {
+	$first_slash = strpos( $path, '/' );
+	$bucket_name = substr( $path, 0, $first_slash );
+	$object = substr( $path, $first_slash+1 );
+	return compact( 'bucket_name', 'object' );
+}
+	
+foreach ( $deletes as $remote_path ) {
+	extract( split_s3_path( $remote_path ) );
+	$s3->batch()->delete_object( $bucket_name, $object );
+	echo "Delete $bucket_name/$object \n";
+}
+
+$do_compress = isset( $yuic_path ) && file_exists( $yuic_path );  
+
+foreach ( $uploads as $file => $remote_path ) {
+	$ext = pathinfo( $file, PATHINFO_EXTENSION );
+	if ( $do_compress && in_array( $ext, $yuic_file_extensions ) ) {
+		if ( !isset( $tmp_path ) ) {
+			$tmp_path = dirname( __FILE__ ) . '/tmp-' . time();
+			mkdir( $tmp_path);
+		}
+		$file_name = basename( $file );
+		echo `java -jar $yuic_path -o $tmp_path/$file_name $file`; 
+		$file = "$tmp_path/$file_name";
+	}
+
+	$opts = array(
+		'fileUpload' => $file,
+		'acl' => AmazonS3::ACL_PUBLIC
+	);
+	extract( split_s3_path( $remote_path ) );
+	$s3->batch()->create_object( $bucket_name, $object, $opts );
+	//echo $file, "\n";
+	echo "Copy $bucket_name/$object \n";
+}
+
+$response = $s3->batch()->send();
+if ( !$response->areOK() ) {
+	echo "Error sending batch.\n";
+	print_r($response);
+}
+
+if ( isset( $tmp_path ) ) {
+	echo `rm -Rf $tmp_path`;
+}
+
+//echo "Done.\n";
+

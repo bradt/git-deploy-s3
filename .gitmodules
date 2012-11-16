@@ -1,0 +1,6 @@
+[submodule "aws-sdk-for-php"]
+	path = aws-sdk-for-php
+	url = git://github.com/amazonwebservices/aws-sdk-for-php.git
+[submodule "aws-sdk"]
+	path = aws-sdk
+	url = git://github.com/amazonwebservices/aws-sdk-for-php.git
