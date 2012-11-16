@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# An example hook script for the "post-receive" event.
+#
+# The "post-receive" script is run after receive-pack has accepted a pack
+# and the repository has been updated.  It is passed arguments in through
+# stdin in the form
+#  <oldrev> <newrev> <refname>
+# For example:
+#  aa453216d1b3e49e7f6f98441fa56946ddcd6a20 68f7abf4e6f922807889f52bc043ecd31b79f814 refs/heads/master
+
+while read oldrev newrev refname
+do
+    if [ "$refname" == "refs/heads/master" ]; then
+        break;  
+    fi  
+done
+
+if [ "$refname" != "refs/heads/master" ]; then
+    exit;   
+fi
+
+PUBLIC_HTML="$HOME/public_html"
+cd $PUBLIC_HTML || exit
+unset GIT_DIR
+
+echo -n "Deploying assets to S3..."
+
+$HOME/git-deploy-s3/git-deploy-s3 $oldrev $newrev
+
+echo "done."
+
+exec git-update-server-info
+
