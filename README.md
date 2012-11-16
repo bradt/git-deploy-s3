@@ -20,7 +20,7 @@ Usage
 
 Run the following from the root of your working copy.
 
-	$ ./deploy-s3 <oldrev> <newrev>
+	$ ./git-deploy-s3 <oldrev> <newrev>
 
 See `config.sample.php` for configuration options.
 
@@ -28,13 +28,12 @@ Installation
 ------------
 
 1. Clone this repo
-1. Copy config.sample.php to config.php and edit it as needed
+1. Copy `config.sample.php` to `config.php` and edit it as needed
 
 Author
 ------
 
-Brad Touesnard
-http://bradt.ca
+Brad Touesnard (http://bradt.ca)
 
 License
 -------
