@@ -20,7 +20,7 @@ Usage
 
 Run the following from the root of your working copy.
 
-	$ ./git-deploy-s3 <oldrev> <newrev>
+	$ /path/to/git-deploy-s3 <oldrev> <newrev>
 
 See `config.sample.php` for configuration options.
 
